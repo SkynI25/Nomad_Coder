@@ -1,158 +1,124 @@
-const cBtn = document.querySelector("#C");
-const sevenBtn = document.querySelector("#seven");
-const eightBtn = document.querySelector("#eight");
-const nineBtn = document.querySelector("#nine");
-const fourBtn = document.querySelector("#four");
-const fiveBtn = document.querySelector("#five");
-const sixBtn = document.querySelector("#six");
-const oneBtn = document.querySelector("#one");
-const twoBtn = document.querySelector("#two");
-const threeBtn = document.querySelector("#three");
-const zeroBtn = document.querySelector("#zero");
+let pendingToDos = [];
+let finishedToDos = [];
+const PENDING = "PENDING";
+const FINISHED = "FINISHED";
+const form = document.querySelector(".todo-form");
+const addTask = form.querySelector(".add-task");
+const pendingList = document.querySelector(".pending ul");
+const finishedList = document.querySelector(".finished ul");
 
-const calcBtn = document.querySelector("#calc");
-const plusBtn = document.querySelector("#plus");
-const subBtn = document.querySelector("#sub");
-const multiBtn = document.querySelector("#multi");
-const divideBtn = document.querySelector("#divide");
-const resultText = document.querySelector(".calc-text");
+function store2LS(state, toDos) {
+  localStorage.setItem(state, JSON.stringify(toDos));
+}
 
-let calcString = "0";
+function deleteBtnHandler(evt) {
+  const btn = evt.target;
+  const li = btn.parentNode;
+  const className = evt.target.parentNode.parentNode.parentNode.className;
+  const state = className.toUpperCase();
 
-function numberPadHandler(evt) {
-  let prevText = calcString === "0" ? "" : resultText.textContent;
-  if (/[\+\/\-\*]/.test(calcString[calcString.length - 1])) {
-    prevText = "";
+  if (state === PENDING) {
+    pendingList.removeChild(li);
+    pendingToDos = pendingToDos.filter(todo => `${todo.id}` !== li.id);
+    store2LS(state, pendingToDos);
+  } else {
+    finishedList.removeChild(li);
+    finishedToDos = finishedToDos.filter(todo => `${todo.id}` !== li.id);
+    store2LS(state, finishedToDos);
   }
-  prevText += evt.target.textContent;
-  calcString += evt.target.textContent;
-  resultText.textContent = Number(prevText);
 }
 
-function cBtnHandler() {
-  resultText.textContent = 0;
-  calcString = "0";
-}
-
-function carryCheck(arr) {
-  return arr[arr.length - 1] === arr[arr.length - 2];
-}
-
-function calc4Carry(op, operArray, numberArray) {
-  let carryResult = 0;
-  for (let i = 0; i < operArray.length; i++) {
-    if (operArray[i] === op && i !== operArray.length - 1) {
-      carryResult = operator4Calc(numberArray[i], op, numberArray[i + 1]);
-      operArray.splice(i, 1);
-      numberArray.splice(i, 2, carryResult);
-    }
-  }
-  resultText.textContent = carryResult;
-  calcString = "";
-  numberArray.forEach((num, i) => {
-    calcString += num;
-    calcString += operArray[i];
-  });
-}
-
-function operHandler(evt) {
-  if (!/[\+\/\-\*]/.test(calcString[calcString.length - 1])) {
-    calcString += evt.target.textContent;
-    let operArray = [];
-    let numberArray = [];
-    numberArray = calcString
-      .split(/[\+\/\-\*]/)
-      .map(el => parseInt(el))
-      .filter(el => el);
-    calcString.split("").forEach(op => {
-      if (isNaN(Number(op))) {
-        operArray.push(op);
+function okayBtnHandler(evt) {
+  const objID = evt.target.parentNode.id;
+  const className = evt.target.parentNode.parentNode.parentNode.className;
+  const state = className.toUpperCase();
+  if (state === PENDING) {
+    [...pendingList.children].forEach(el => {
+      if (el.id === objID) {
+        evt.target.innerHTML = "🔄";
+        finishedList.appendChild(el);
+        finishedToDos.push(pendingToDos.find(obj => `${obj.id}` === objID));
+        store2LS(FINISHED, finishedToDos);
+        pendingToDos = pendingToDos.filter(todo => `${todo.id}` !== objID);
+        store2LS(PENDING, pendingToDos);
       }
     });
-    if (numberArray.length >= 2 && carryCheck(operArray)) {
-      calc4Carry(evt.target.textContent, operArray, numberArray);
-    }
-  }
-}
-
-function calcHandler(evt) {
-  if (evt && evt.target.textContent === "=") {
-    const isNumber = Number(calcString[calcString.length - 1]);
-    if (isNaN(isNumber)) {
-      calcString += resultText.textContent;
-    }
   } else {
-    calcString = calcString.substring(0, calcString.length - 1);
+    [...finishedList.children].forEach(el => {
+      if (el.id === objID) {
+        evt.target.innerHTML = "✅";
+        // pendingList.appendChild(el);
+        pendingToDos.push(finishedToDos.find(obj => `${obj.id}` === objID));
+        store2LS(PENDING, pendingToDos);
+        finishedToDos = finishedToDos.filter(todo => `${todo.id}` !== objID);
+        store2LS(FINISHED, finishedToDos);
+      }
+    });
   }
-  const totalResult = parsing4Calc();
-  resultText.textContent = totalResult;
-  calcString = "0";
 }
 
-function operator4Calc(prevNum, oper, currNum) {
-  if (oper === "-") {
-    return prevNum - currNum;
-  } else if (oper === "*") {
-    return prevNum * currNum;
-  } else if (oper === "/") {
-    return prevNum / currNum;
+function paintToDo(todo, state) {
+  const li = document.createElement("li");
+  const span = document.createElement("span");
+  const delBtn = document.createElement("button");
+  const okayBtn = document.createElement("button");
+  const textValue = typeof todo === "string" ? todo : todo.text;
+  const newId =
+    typeof textValue === "string"
+      ? Math.random() * 100000000000000000
+      : todo.id;
+
+  span.innerText = textValue;
+  delBtn.innerHTML = "❌";
+  okayBtn.innerHTML = state === FINISHED ? "🔄" : "✅";
+  delBtn.addEventListener("click", deleteBtnHandler);
+  okayBtn.addEventListener("click", okayBtnHandler);
+  li.id = newId;
+  li.appendChild(span);
+  li.appendChild(delBtn);
+  li.appendChild(okayBtn);
+  if (state === FINISHED) {
+    finishedList.appendChild(li);
+  } else {
+    pendingList.appendChild(li);
   }
-  return prevNum + currNum;
+
+  const toDoObj = { id: newId, text: textValue };
+  if (state === FINISHED) {
+    finishedToDos.push(toDoObj);
+    store2LS(state, finishedToDos);
+  } else {
+    pendingToDos.push(toDoObj);
+    store2LS(state, pendingToDos);
+  }
 }
 
-function parsing4Calc() {
-  let operArray = [];
-  let numberArray = [];
-  numberArray = calcString.split(/[\+\/\-\*]/).map(el => parseInt(el));
-  calcString.split("").forEach(op => {
-    if (isNaN(Number(op))) {
-      operArray.push(op);
-    }
-  });
-  operArray.forEach((op, i) => {
-    let result = 0;
-    if (op === "*" || op === "/") {
-      result = operator4Calc(numberArray[i], op, numberArray[i + 1]);
-      operArray.splice(i, 1);
-      numberArray.splice(i, 2, result);
-    }
-  });
-  let currNumber = operArray.length > 0 ? 0 : numberArray[0];
-  for (let i = 0; i < operArray.length; i++) {
-    if (currNumber === 0) {
-      currNumber = operator4Calc(
-        parseInt(numberArray[i]),
-        operArray[i],
-        parseInt(numberArray[i + 1])
-      );
-    } else {
-      currNumber = operator4Calc(
-        currNumber,
-        operArray[i],
-        parseInt(numberArray[i + 1])
-      );
-    }
+function handleSubmit(evt) {
+  evt.preventDefault();
+  paintToDo(addTask.value, PENDING);
+  addTask.value = "";
+}
+
+function loadToDos() {
+  const loadedPENDING = localStorage.getItem(PENDING);
+  const loadedFINISHED = localStorage.getItem(FINISHED);
+  if (loadedPENDING !== null) {
+    const parsedPENDING = JSON.parse(loadedPENDING);
+    parsedPENDING.forEach(function(todo) {
+      paintToDo(todo, PENDING);
+    });
   }
-  return currNumber;
+  if (loadedFINISHED !== null) {
+    const parsedFINISHED = JSON.parse(loadedFINISHED);
+    parsedFINISHED.forEach(function(todo) {
+      paintToDo(todo, FINISHED);
+    });
+  }
 }
 
 function init() {
-  sevenBtn.addEventListener("click", numberPadHandler);
-  eightBtn.addEventListener("click", numberPadHandler);
-  nineBtn.addEventListener("click", numberPadHandler);
-  fourBtn.addEventListener("click", numberPadHandler);
-  fiveBtn.addEventListener("click", numberPadHandler);
-  sixBtn.addEventListener("click", numberPadHandler);
-  oneBtn.addEventListener("click", numberPadHandler);
-  twoBtn.addEventListener("click", numberPadHandler);
-  threeBtn.addEventListener("click", numberPadHandler);
-  zeroBtn.addEventListener("click", numberPadHandler);
-  cBtn.addEventListener("click", cBtnHandler);
-  plusBtn.addEventListener("click", operHandler);
-  subBtn.addEventListener("click", operHandler);
-  multiBtn.addEventListener("click", operHandler);
-  divideBtn.addEventListener("click", operHandler);
-  calcBtn.addEventListener("click", calcHandler);
+  loadToDos();
+  form.addEventListener("submit", handleSubmit);
 }
-console.log("Ready to work!");
+
 init();
